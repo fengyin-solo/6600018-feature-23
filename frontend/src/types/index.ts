@@ -34,6 +34,14 @@ export interface SearchHit {
   docId: string
   docName: string
   lineIndex: number
+  charStart: number
+  charEnd: number
+  bbox: [number, number, number, number]
+  matchedSource: 'original' | 'corrected'
+  matchedText: string
+  totalLines: number
+  contextBefore: string
+  contextAfter: string
 }
 
 export interface SearchGroup {

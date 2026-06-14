@@ -84,6 +84,17 @@ export const useOcrStore = defineStore('ocr', () => {
     return text.split('').map(c => VARIANT_DICT[c] || c).join('')
   }
 
+  function findAllMatches(text: string, q: string): number[] {
+    const positions: number[] = []
+    const lowerText = text.toLowerCase()
+    let idx = 0
+    while ((idx = lowerText.indexOf(q, idx)) !== -1) {
+      positions.push(idx)
+      idx += q.length
+    }
+    return positions
+  }
+
   function searchInDocuments(query: string) {
     const q = query.toLowerCase().trim()
     if (!q) {
@@ -97,18 +108,38 @@ export const useOcrStore = defineStore('ocr', () => {
 
     for (const doc of documents.value) {
       const docHits: SearchHit[] = []
+      const totalLines = doc.results.length
       doc.results.forEach((r, idx) => {
-        const textMatch = r.text.toLowerCase().includes(q)
-        const correctedMatch = (r.corrected || '').toLowerCase().includes(q)
-        if (textMatch || correctedMatch) {
-          const hit: SearchHit = {
-            result: r,
-            docId: doc.id,
-            docName: doc.name,
-            lineIndex: idx + 1
+        const origPositions = findAllMatches(r.text, q)
+        const corrText = r.corrected || ''
+        const corrPositions = findAllMatches(corrText, q)
+        const positions = origPositions.length > 0 ? origPositions : corrPositions
+        const source: 'original' | 'corrected' = origPositions.length > 0 ? 'original' : 'corrected'
+        const sourceText = source === 'original' ? r.text : corrText
+
+        if (positions.length > 0) {
+          const prevResult = idx > 0 ? doc.results[idx - 1] : null
+          const nextResult = idx < totalLines - 1 ? doc.results[idx + 1] : null
+
+          for (const pos of positions) {
+            const matched = sourceText.substring(pos, pos + q.length)
+            const hit: SearchHit = {
+              result: r,
+              docId: doc.id,
+              docName: doc.name,
+              lineIndex: idx + 1,
+              charStart: pos + 1,
+              charEnd: pos + q.length,
+              bbox: r.bbox,
+              matchedSource: source,
+              matchedText: matched,
+              totalLines,
+              contextBefore: prevResult ? prevResult.text : '',
+              contextAfter: nextResult ? nextResult.text : ''
+            }
+            docHits.push(hit)
+            allHits.push(hit)
           }
-          docHits.push(hit)
-          allHits.push(hit)
         }
       })
       if (docHits.length > 0) {
@@ -121,7 +152,7 @@ export const useOcrStore = defineStore('ocr', () => {
       }
     }
 
-    searchResults.value = allHits.map(h => h.result)
+    searchResults.value = Array.from(new Map(allHits.map(h => [h.result.id, h.result])).values())
     searchGroups.value = groups
   }
 
