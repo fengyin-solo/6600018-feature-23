@@ -28,3 +28,17 @@ export interface VariantChar {
   modern: string
   frequency: number
 }
+
+export interface SearchHit {
+  result: OCRResult
+  docId: string
+  docName: string
+  lineIndex: number
+}
+
+export interface SearchGroup {
+  docId: string
+  docName: string
+  hits: SearchHit[]
+  hitCount: number
+}

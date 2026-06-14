@@ -10,8 +10,13 @@
     <svg class="absolute inset-0 w-full h-full pointer-events-none">
       <g v-for="r in store.currentDoc?.results || []" :key="r.id">
         <rect :x="r.bbox[0]" :y="r.bbox[1]" :width="r.bbox[2]" :height="r.bbox[3]"
-          fill="none" stroke="rgba(251,191,36,0.6)" stroke-width="2" />
-        <text :x="r.bbox[0]" :y="r.bbox[1] - 5" fill="#fbbf24" font-size="12">{{ r.text }}</text>
+          :fill="store.highlightedResultId === r.id ? 'rgba(251,191,36,0.25)' : 'none'"
+          :stroke="store.highlightedResultId === r.id ? '#fbbf24' : 'rgba(251,191,36,0.6)'"
+          :stroke-width="store.highlightedResultId === r.id ? 3 : 2" />
+        <text :x="r.bbox[0]" :y="r.bbox[1] - 5"
+          :fill="store.highlightedResultId === r.id ? '#fef08a' : '#fbbf24'"
+          :font-weight="store.highlightedResultId === r.id ? 'bold' : 'normal'"
+          font-size="12">{{ r.text }}</text>
       </g>
       <!-- Annotations -->
       <g v-for="a in store.currentDoc?.annotations || []" :key="a.id">

@@ -1,6 +1,6 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { Document, OCRResult, Annotation } from '../types'
+import type { Document, OCRResult, Annotation, SearchGroup, SearchHit } from '../types'
 
 export const useOcrStore = defineStore('ocr', () => {
   const documents = ref<Document[]>([])
@@ -8,6 +8,8 @@ export const useOcrStore = defineStore('ocr', () => {
   const isLoading = ref(false)
   const searchQuery = ref('')
   const searchResults = ref<OCRResult[]>([])
+  const searchGroups = ref<SearchGroup[]>([])
+  const highlightedResultId = ref<string | null>(null)
 
   // Mock data
   const MOCK_DOC: Document = {
@@ -83,10 +85,56 @@ export const useOcrStore = defineStore('ocr', () => {
   }
 
   function searchInDocuments(query: string) {
-    const q = query.toLowerCase()
-    searchResults.value = documents.value.flatMap(d =>
-      d.results.filter(r => r.text.includes(q) || (r.corrected || '').includes(q))
-    )
+    const q = query.toLowerCase().trim()
+    if (!q) {
+      searchResults.value = []
+      searchGroups.value = []
+      return
+    }
+
+    const allHits: SearchHit[] = []
+    const groups: SearchGroup[] = []
+
+    for (const doc of documents.value) {
+      const docHits: SearchHit[] = []
+      doc.results.forEach((r, idx) => {
+        const textMatch = r.text.toLowerCase().includes(q)
+        const correctedMatch = (r.corrected || '').toLowerCase().includes(q)
+        if (textMatch || correctedMatch) {
+          const hit: SearchHit = {
+            result: r,
+            docId: doc.id,
+            docName: doc.name,
+            lineIndex: idx + 1
+          }
+          docHits.push(hit)
+          allHits.push(hit)
+        }
+      })
+      if (docHits.length > 0) {
+        groups.push({
+          docId: doc.id,
+          docName: doc.name,
+          hits: docHits,
+          hitCount: docHits.length
+        })
+      }
+    }
+
+    searchResults.value = allHits.map(h => h.result)
+    searchGroups.value = groups
+  }
+
+  function jumpToSearchHit(hit: SearchHit) {
+    const doc = documents.value.find(d => d.id === hit.docId)
+    if (doc) {
+      currentDoc.value = doc
+      highlightedResultId.value = hit.result.id
+    }
+  }
+
+  function clearHighlight() {
+    highlightedResultId.value = null
   }
 
   function exportTEI(): string {
@@ -103,8 +151,8 @@ export const useOcrStore = defineStore('ocr', () => {
   }
 
   return {
-    documents, currentDoc, isLoading, searchQuery, searchResults,
+    documents, currentDoc, isLoading, searchQuery, searchResults, searchGroups, highlightedResultId,
     loadMockDocument, uploadAndOCR, addAnnotation, removeAnnotation,
-    convertVariant, searchInDocuments, exportTEI
+    convertVariant, searchInDocuments, jumpToSearchHit, clearHighlight, exportTEI
   }
 })

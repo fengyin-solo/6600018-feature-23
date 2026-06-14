@@ -16,13 +16,34 @@
       </button>
 
       <!-- Search -->
-      <div>
+      <div class="flex flex-col gap-2">
         <input v-model="store.searchQuery" @input="store.searchInDocuments(store.searchQuery)"
           placeholder="全文检索..." class="w-full bg-gray-800 rounded px-3 py-2 text-sm" />
-        <div v-if="store.searchResults.length" class="mt-1 space-y-1">
-          <div v-for="r in store.searchResults" :key="r.id" class="bg-gray-800 rounded p-1 text-xs">
-            {{ r.text }} <span class="text-gray-500">{{ (r.confidence * 100).toFixed(0) }}%</span>
+        <div v-if="store.searchGroups.length" class="space-y-2 max-h-64 overflow-y-auto">
+          <div v-for="group in store.searchGroups" :key="group.docId" class="bg-gray-800 rounded">
+            <div class="px-2 py-1.5 bg-gray-700 rounded-t flex justify-between items-center cursor-pointer hover:bg-gray-600"
+              @click="store.currentDoc = store.documents.find(d => d.id === group.docId) || null">
+              <span class="text-xs font-medium text-amber-300 truncate">{{ group.docName }}</span>
+              <span class="text-xs text-gray-400 bg-gray-600 px-1.5 py-0.5 rounded">{{ group.hitCount }} 处</span>
+            </div>
+            <div class="space-y-0.5 p-1">
+              <div v-for="hit in group.hits" :key="hit.result.id"
+                @click="store.jumpToSearchHit(hit)"
+                class="px-2 py-1 text-xs rounded cursor-pointer hover:bg-gray-700 transition-colors"
+                :class="store.highlightedResultId === hit.result.id ? 'bg-amber-900/40 text-amber-200' : 'text-gray-300'">
+                <div class="flex justify-between items-center">
+                  <span class="truncate" v-html="highlightText(hit.result.text, store.searchQuery)"></span>
+                  <span class="text-gray-500 text-[10px] ml-1 shrink-0">第{{ hit.lineIndex }}行</span>
+                </div>
+                <div class="text-[10px] text-gray-500 mt-0.5">
+                  置信度 {{ (hit.result.confidence * 100).toFixed(0) }}%
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+        <div v-else-if="store.searchQuery.trim()" class="text-xs text-gray-500 text-center py-2">
+          未找到匹配结果
         </div>
       </div>
 
@@ -95,6 +116,14 @@ const store = useOcrStore()
 function onUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (file) store.uploadAndOCR(file)
+}
+
+function highlightText(text: string, query: string): string {
+  if (!query.trim()) return text
+  const q = query.trim()
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escaped})`, 'gi')
+  return text.replace(regex, '<mark class="bg-amber-500/40 text-amber-200 px-0.5 rounded">$1</mark>')
 }
 
 function doExport() {
